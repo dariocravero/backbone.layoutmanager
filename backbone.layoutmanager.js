@@ -175,6 +175,12 @@ var LayoutManager = Backbone.View.extend({
       // If the View we are adding has already been rendered, simply inject it
       // into the parent.
       if (manager.hasRendered) {
+        // If we are metamorphing this View, only set the top level.
+        if (view.__manager__.metamorph) {
+          view.setElement(view.$el.children());
+        }
+
+        // Apply the partial.
         options.partial(root.el, manager.selector, view.el, manager.insert);
       }
 
@@ -239,6 +245,12 @@ var LayoutManager = Backbone.View.extend({
       // If there is a parent, attach.
       if (parent) {
         if (!options.contains(parent.el, root.el)) {
+          // If we are metamorphing this View, track the top level elements.
+          if (root.__manager__.metamorph) {
+            root.setElement(root.$el.children());
+          }
+
+          // Apply the partial.
           options.partial(parent.el, manager.selector, root.el, manager.insert);
         }
       }
@@ -595,6 +607,11 @@ var LayoutManager = Backbone.View.extend({
     if (opts.manage) {
       Backbone.View.prototype.manage = true;
     }
+
+    // Disable the element globally.
+    if (opts.el === false) {
+      Backbone.View.prototype.el = false;
+    }
   },
   
   // Configure a View to work with the LayoutManager plugin.
@@ -723,14 +740,26 @@ LayoutManager.VERSION = "0.8.0-pre";
 
 // Override _configure to provide extra functionality that is necessary in
 // order for the render function reference to be bound during initialize.
-Backbone.View.prototype._configure = function() {
+Backbone.View.prototype._configure = function(options) {
+  var metamorph;
+
+  // Allows for something similar to Tomhuda's metamorph in that it removes
+  // the need for a container element.
+  if (options.el === false || this.el === false) {
+    metamorph = true;
+  }
+
   // Run the original _configure.
   var retVal = _configure.apply(this, arguments);
 
   // If manage is set, do it!
-  if (this.manage || this.options.manage) {
+  if (options.manage || this.manage) {
     // Set up this View.
     LayoutManager.setupView(this);
+  }
+
+  if (this.__manager__) {
+    this.__manager__.metamorph = metamorph;
   }
 
   // Act like nothing happened.
